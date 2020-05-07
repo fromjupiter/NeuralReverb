@@ -9,7 +9,7 @@ import numpy as np
 
 # Lambda for computing squared amplitude
 amp = lambda x: x[...,0]**2 + x[...,1]**2
-    
+
 class Analysis(nn.Module):
     """
     Generic class for trainable analysis modules.
@@ -53,13 +53,11 @@ class MultiscaleFFT(Analysis):
         for i, scale in enumerate(self.scales):
             cur_fft = torch.stft(x, n_fft=scale, window=self.windows[i], hop_length=int((1-self.overlap)*scale), center=False)
             stfts.append(amp(cur_fft))
-        
         stft_tab = []
         for b in range(x.shape[0]):
             cur_fft = []
             for s, _ in enumerate(self.scales):
-                cur_fft.append(stfts[s][b].clone())
+                cur_fft.append(stfts[s][b])
             stft_tab.append(cur_fft)
-        
         stfts = stft_tab
         return stfts

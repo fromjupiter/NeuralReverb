@@ -1,0 +1,46 @@
+# Hyperparameters
+train_epoch: 100
+early_stop_epoch: 5
+learning_rate: 0.001
+
+# Model dump path
+save_path: 'out/base_model'
+
+# Trace data dump path
+trace_path: 'out/base_data'
+
+# device
+device: cuda
+
+# Model
+model_name: 'BaseLSTM'
+max_seq_len: 20
+hidden_size: 40 
+num_layers: 1 # number of LSTM layers
+embedding_size: 30
+
+# Imported data
+train_dataset:
+    name: 'VAST'
+    datadir: './dataset/VAST/train'
+    num_workers: 2
+    n_mfcc: 33
+    fft_scales: 
+      -128
+      -1
+    transforms: None
+    batch_size: 20
+
+val_dataset: 
+    id_path: './ValImageIds.csv'
+    image_dir: './data/images/val'
+    caption_path: './data/annotations/captions_train2014.json'
+    # transforms: None
+    batch_size: 20
+
+test_dataset: 
+    id_path: './TestImageIds.csv'
+    image_dir: './data/images/test'
+    caption_path: './data/annotations/captions_train2014.json'
+    # transforms: None
+    batch_size: 10
