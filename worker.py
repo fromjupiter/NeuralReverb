@@ -1,5 +1,6 @@
 import os
 import csv
+import sys
 import yaml
 import torch
 import logging
@@ -8,12 +9,10 @@ import numpy as np
 import torch.nn as nn
 from datetime import datetime
 # Custom packages
-import neuralnet.vocab
-import neuralnet.utils
-import neuralnet.models
+import neuralnet.model
 
-from neuralnet.data_loader import get_loader
-from neuralnet.train import train, runStats
+from data.data_loader import get_loader
+from neuralnet.train import train
 
 def load_config():
     """
@@ -26,12 +25,15 @@ def load_config():
     config = yaml.load(open(args.config, 'r'), Loader=yaml.SafeLoader)
     config['save_path'] = config['save_path'] + '_' + timestamp + '.model' # add timestamp to model
     config['trace_path'] = config['trace_path'] + '_' + timestamp + '.data'
-    logging.basicConfig(filename='out/worker_{}.log'.format(timestamp), 
+    logging.basicConfig(
+                        # filename='out/worker_{}.log'.format(timestamp), 
+                        stream=sys.stdout,
                         level=logging.INFO, 
                         format='[%(asctime)s] %(message)s', 
                         datefmt='%m/%d/%Y %I:%M:%S %p')
+
     logging.info("Configuration file: {}".format(args.config))
-    logging.info("Using model {}".format(config['model']))
+    logging.info("Using model {}".format(config['model_name']))
     logging.info("Epochs: {}, Early-stop epoch: {}, Learning rate: {}, Restore path: {}".format(config['train_epoch'], config['early_stop_epoch'], config['learning_rate'], config['restore_path']))
     return config
 
@@ -50,22 +52,21 @@ def build_loader(config):
     Build and return DataLoader
     """
     return get_loader(name=config['name'], 
-                datadir = config['datadir']
+                datadir = config['datadir'],
                 batch_size = config['batch_size'], 
                 num_workers = config['num_workers']) 
 
 def main():
     # Load Data
-    config                = load_config()
-    train_loader          = build_loader(config['train_dataset'])
-    val_loader            = build_loader(config['val_dataset'])
+    config = load_config()
+    train_loader = build_loader(config['train_dataset'])
+    val_loader = build_loader(config['val_dataset'])
 
-    model                 = model_loader(config)
-
-    logging.info("Using {} as device".format(config.get('device', 'cpu')))
+    model = model_loader(config)
+    device = config.get('device', 'cpu')
+    logging.info("Using {} as device".format(device))
     model=model.to(device)
-
-    runStats(model, val_loader)
+    # evaluate(model, val_loader)
     # Train
     train(model, train_loader, val_loader, config)
     logging.info("Worker completed!")

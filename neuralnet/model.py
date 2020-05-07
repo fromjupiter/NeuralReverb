@@ -1,7 +1,10 @@
 import logging
+import itertools
 import torch
 import torch.nn as nn
 from abc import ABC,abstractmethod
+
+from neuralnet.analysis import MultiscaleFFT
 
 class BaseModel(nn.Module):
     """
@@ -10,11 +13,10 @@ class BaseModel(nn.Module):
     Output is the synthesized reverbed audio.
     """
     def __init__(self, config):
+        super(BaseModel, self).__init__()
         logging.info('Initializing model {}'.format(self.__class__.__name__))
-        self.multiScaleFFT = MultiscaleFFT()
-        self.scale = config['scale']
-        self.window = config['window']
-        self.overlap = config['overlap']
+        self.multiScaleFFT = MultiscaleFFT(scales=config['fft_scales'], overlap=config['overlap'])
+        self.scale = config['fft_scales'][0]
 
     def set_input(self, y, y_orig):
         self.y = y
@@ -57,10 +59,10 @@ class BaseModel(nn.Module):
         y_orig: anechoic binaural audio, batch_size x 2 x audio_samples
     """
     def forward(self):
-        # y_sffts : list of (batch_size x 2 x seq_len x freq_bins), length is scales
-        self.y_sffts = self.multiScaleFFT(self.y)
+        # y_stfts : list of (batch_size x 2 x seq_len x freq_bins), length is scales
+        self.y_stfts = self.multiScaleFFT(self.y)
         # z : batch_size x 2 x seq_len x hidden_size
-        self.z = self.encode(self.y_sffts[0])
+        self.z = self.encode(self.y_stfts[0])
         self.params = self.decode(z)
         self.y_synth = synth(self.y_orig, self.params)
     
@@ -74,8 +76,10 @@ class BaseModel(nn.Module):
 class SimpleReverberator(BaseModel):
     def __init__(self, config):
         super(SimpleReverberator, self).__init__(config)
-        self.optimizer = torch.optim.Adam(itertools.chain([self.parameters()]), lr=config['learning_rate'])
-        self.encoder = nn.GRU(self.scale/2+1, self.hidden_size, 2, batch_first=True, bidirectional=False)
+        self.hidden_size = config['hidden_size']
+        lp = [self.parameters()]
+        self.optimizer = torch.optim.Adam(itertools.chain(*lp), lr=config['learning_rate'])
+        self.encoder = nn.GRU(int(self.scale/2)+1, self.hidden_size, 2, batch_first=True, bidirectional=False)
         self.decoder = nn.Linear(self.hidden_size, 2)
 
     def encode(self, y):
@@ -114,7 +118,7 @@ class SimpleReverberator(BaseModel):
 
     def optimize_parameters(self):
         self.forward()
-        stfts = self.y_sffts
+        stfts = self.y_stfts
         stfts_rec = self.multiScaleFFT(self.y_synth)
         
         lin_loss = sum([torch.mean(abs(stfts[i] - stfts_rec[i])) for i in range(len(stfts_rec))])

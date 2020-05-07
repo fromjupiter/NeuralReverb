@@ -12,7 +12,7 @@ class Reverb(Effects):
         length (int)        : Number of samples of the impulse response
     """
     
-    def __init__(self, args):
+    def __init__(self, config):
         super(Reverb, self).__init__()
         self.size = self.block_size * self.sequence_size
         self.apply(self.init_parameters)

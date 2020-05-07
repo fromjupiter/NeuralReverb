@@ -14,7 +14,6 @@ from neuralnet.analysis import MultiscaleFFT
 from collections import namedtuple
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
-from neuralnet.utils import CaptionScorer
 
 def checkGPU():
     logging.info("GPU Usage - cached:{}/{} GB, allocated:{}/{} GB".format(round(torch.cuda.memory_cached()/1024/1024/1024,5), 
@@ -31,10 +30,11 @@ def evaluate(model, data_loader):
 
 def _evaluate(model, data_loader):
     print("_evaluate not implemented yet!")
+    return 0
 
 def train(model, train_loader, val_loader, config):
     device       = config.get('device', 'cpu')
-    optimizer    = optim.Adam(model.parameters(), lr=config['lr'])
+    optimizer    = optim.Adam(model.parameters(), lr=config['learning_rate'])
     stop_counter = 0
     prev_loss    = float('inf')
     
@@ -44,8 +44,8 @@ def train(model, train_loader, val_loader, config):
     else:
         result = []
     
-    logging.info("Start training models for {} epochs.".format(config['epochs']))
-    for epoch in range(1,config['epochs']+1):
+    logging.info("Start training models for {} epochs.".format(config['train_epoch']))
+    for epoch in range(1,config['train_epoch']+1):
         model.train()
         ts = time.time()
         train_loss = 0.0
@@ -59,11 +59,12 @@ def train(model, train_loader, val_loader, config):
                 logging.info("epoch{}, iter{}, loss: {}".format(epoch, iter, loss.item()))
             counter += 1
             train_loss += model.loss.item()
-        train_loss /= counter
+        
+        train_loss /= max(1,counter)
 
         if device=='cuda':
             torch.cuda.empty_cache()
-        val_loss, _ = evaluate(model, val_loader, criterion=criterion)
+        val_loss = evaluate(model, val_loader)
         logging.info('Epoch {}, train loss - {}, validation loss - {}'.format(epoch, train_loss, val_loss))
         result.append((train_loss, val_loss))
         with open(config['trace_path'], 'wb') as fh:
@@ -75,7 +76,7 @@ def train(model, train_loader, val_loader, config):
         else:
             torch.save(model, config['save_path'])
             stop_counter = 0
-        if stop_counter >= config.get('epoch'):
+        if stop_counter >= config.get('early_stop_epoch'):
             logging.info("Early stopping..")
             break
         prev_loss = val_loss
