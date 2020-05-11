@@ -55,10 +55,11 @@ def train(model, train_loader, val_loader, config):
             y_orig = y_orig.to(device)
             model.set_input(y, y_orig)
             model.optimize_parameters()
-            if iter % 1000 == 0:
-                logging.info("epoch{}, iter{}, loss: {}".format(epoch, iter, loss.item()))
+            if iter % 200 == 0:
+                logging.info("epoch{}, iter{}, loss: {}".format(epoch, iter, model.loss.item()))
             counter += 1
             train_loss += model.loss.item()
+            break
         
         train_loss /= max(1,counter)
 

@@ -36,11 +36,15 @@ class MultiscaleFFT(Analysis):
             stfts : (scales, freq_bin, time_step)
     """
     
-    def __init__(self, scales, overlap=0.75):
+    def __init__(self, fft_scales, overlap=0.75, reshape=True):
         super(MultiscaleFFT, self).__init__()
         self.apply(self.init_parameters)
+        scales = []
+        for s in range(fft_scales[1]):
+            scales.append(fft_scales[0] * (2 ** s))
         self.scales = scales
         self.overlap = overlap
+        self.reshape = reshape
         self.windows = nn.ParameterList(
                 nn.Parameter(torch.from_numpy(np.hanning(scale)).float(), requires_grad=False)\
             for scale in self.scales)
@@ -53,11 +57,13 @@ class MultiscaleFFT(Analysis):
         for i, scale in enumerate(self.scales):
             cur_fft = torch.stft(x, n_fft=scale, window=self.windows[i], hop_length=int((1-self.overlap)*scale), center=False)
             stfts.append(amp(cur_fft))
-        stft_tab = []
-        for b in range(x.shape[0]):
-            cur_fft = []
-            for s, _ in enumerate(self.scales):
-                cur_fft.append(stfts[s][b])
-            stft_tab.append(cur_fft)
-        stfts = stft_tab
+        
+        if (self.reshape):
+            stft_tab = []
+            for b in range(x.shape[0]):
+                cur_fft = []
+                for s, _ in enumerate(self.scales):
+                    cur_fft.append(stfts[s][b])
+                stft_tab.append(cur_fft)
+            stfts = stft_tab
         return stfts

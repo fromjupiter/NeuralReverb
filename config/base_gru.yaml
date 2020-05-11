@@ -1,7 +1,7 @@
 # Hyperparameters
 train_epoch: 100
 early_stop_epoch: 5
-learning_rate: 0.001
+learning_rate: 1
 
 # Model dump path
 save_path: 'out/base_model'
@@ -17,20 +17,20 @@ model_name: 'SimpleReverberator'
 max_seq_len: 20
 hidden_size: 40 
 num_layers: 1 # number of LSTM layers
-embedding_size: 30
 
 # DSP params
 
 # multi-scale fft
 fft_scales: 
-    - 128
-    - 1
+    - 128 # base
+    - 1 # exp
 overlap: 0.75
 
 # Imported data
 train_dataset:
     name: 'VAST'
-    datadir: './dataset/VAST/train'
+    datadir: './dataset/VAST/test'
+    anechoic: './dataset/VAST/anechoic.mat'
     num_workers: 1
     n_mfcc: 33
     transforms: None
@@ -39,6 +39,7 @@ train_dataset:
 val_dataset: 
     name: 'VAST'
     datadir: './dataset/VAST/val'
+    anechoic: './dataset/VAST/anechoic.mat'
     num_workers: 1
     n_mfcc: 33
     transforms: None
@@ -47,6 +48,7 @@ val_dataset:
 test_dataset: 
     name: 'VAST'
     datadir: './dataset/VAST/test'
+    anechoic: './dataset/VAST/anechoic.mat'
     num_workers: 1
     n_mfcc: 33
     transforms: None

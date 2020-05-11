@@ -53,6 +53,7 @@ def build_loader(config):
     """
     return get_loader(name=config['name'], 
                 datadir = config['datadir'],
+                anechoic_path = config['anechoic'],
                 batch_size = config['batch_size'], 
                 num_workers = config['num_workers']) 
 
