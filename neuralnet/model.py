@@ -84,9 +84,18 @@ class SimpleReverberator(BaseModel):
         self.encoder = nn.GRU(int(self.scale/2+1)*2, self.hidden_size, 1, batch_first=True, bidirectional=False)
         self.decoder = nn.Linear(self.hidden_size, 4)
         self.criterion = MSSTFTLoss(config)
-        self.optimizer = torch.optim.Adam(itertools.chain(*[self.encoder.parameters(), self.decoder.parameters()]), lr=config['learning_rate'])
+        self.sigmoid = nn.Sigmoid()
+
+        self.optimizer = torch.optim.Adam(itertools.chain(*[self.decoder.parameters(), self.encoder.parameters()]), lr=config['learning_rate'])
 
     def set_input(self, y, y_orig):
+        # TODO: Adding norm here to avoid vanishing gradient for now. It doesn't feel right tho.
+        y_orig -= y_orig.min(dim=2, keepdim=True)[0]
+        y_orig /= y_orig.max(dim=2, keepdim=True)[0]
+        y_orig = y_orig * 2 - 1
+        y -= y.min(dim=2, keepdim=True)[0]
+        y /= y.max(dim=2, keepdim=True)[0]
+        y = y * 2 - 1
         super().set_input(y, y_orig)
         # parameters for exp decay reverberator
         self.size     = y.size(2)
@@ -104,7 +113,7 @@ class SimpleReverberator(BaseModel):
     def decode(self, z):
         z = z.permute(1,0,2)
         z = z.view(z.size(0), -1)
-        return self.decoder(z)
+        return self.sigmoid(self.decoder(z))
 
     def synth(self, y_orig, params):
         l_wetdry = params[:,0]
@@ -118,25 +127,24 @@ class SimpleReverberator(BaseModel):
     """
     A simple exp decay reverberator
     Arguments:
-        y: binaural audio, batch_size x 2 x audio_samples
+        y: audio, batch_size x audio_samples
         wetdry: (batch_size,)
         decay:  (batch_size,)
     """
     def _exp_decay_reverb(self, y, wetdry, decay):
-        # Pad the input sequence
-        # y = nn.functional.pad(y, (0, self.size), "constant", 0)
         # Compute STFT
         Y_S = torch.rfft(y, 1)
         # Compute the current impulse response
-        idx = torch.sigmoid(wetdry).unsqueeze(1) * self.identity.expand(len(wetdry), -1)
-        imp = torch.sigmoid(1 - wetdry).unsqueeze(1) * self.impulse.expand(len(wetdry), -1)
+
+        # idx = torch.sigmoid(wetdry).unsqueeze(1).expand(-1, y.size(1))
+        # imp = torch.sigmoid(1 - wetdry).unsqueeze(1) * self.impulse.expand(len(wetdry), -1)
+        # dcy = torch.exp(-(torch.exp(decay) + 2).unsqueeze(1) * torch.linspace(0,1, self.size).to(y.device))
+        idx = wetdry.unsqueeze(1).expand(-1, y.size(1))
+        imp = (1 - wetdry).unsqueeze(1) * self.impulse.expand(len(wetdry), -1)
         dcy = torch.exp(-(torch.exp(decay) + 2).unsqueeze(1) * torch.linspace(0,1, self.size).to(y.device))
         final_impulse = idx + imp * dcy
         # Pad the impulse response
         impulse = final_impulse
-        # impulse = nn.functional.pad(final_impulse, (0, self.size), "constant", 0)
-        # if y.shape[-1] > self.size:
-        #     impulse = nn.functional.pad(impulse, (0, y.shape[-1] - impulse.shape[-1]), "constant", 0)
         IR_S = torch.rfft(impulse,1).expand_as(Y_S)
         # IR_S = torch.rfft(impulse.detach(),1).expand_as(Y_S)
         # Apply the reverb
@@ -153,4 +161,7 @@ class SimpleReverberator(BaseModel):
 
         self.optimizer.zero_grad()
         self.loss.backward()
+        # for n, p in self.named_parameters():
+        #     if n=='decoder.weight' and p.requires_grad:
+        #         print(n,p.grad)
         self.optimizer.step()

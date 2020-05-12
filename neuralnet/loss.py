@@ -52,4 +52,5 @@ class MSSTFTLoss(Loss):
         # Compute loss 
         lin_loss = sum([torch.mean(abs(stfts_orig[i][j] - stfts[i][j])) for j in range(len(stfts[i])) for i in range(len(stfts))])
         log_loss = sum([torch.mean(abs(torch.log(stfts_orig[i][j] + 1e-4) - torch.log(stfts[i][j] + 1e-4)))  for j in range(len(stfts[i])) for i in range(len(stfts))])
-        return lin_loss + log_loss
+        
+        return (lin_loss + log_loss)

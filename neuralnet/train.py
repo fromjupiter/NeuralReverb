@@ -59,7 +59,6 @@ def train(model, train_loader, val_loader, config):
                 logging.info("epoch{}, iter{}, loss: {}".format(epoch, iter, model.loss.item()))
             counter += 1
             train_loss += model.loss.item()
-            break
         
         train_loss /= max(1,counter)
 
